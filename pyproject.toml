@@ -1,0 +1,12 @@
+[project]
+name = "docs-reviewer"
+version = "0.1.0"
+description = "Protótipo de interface do Gemini NotebookLM em Python e Streamlit"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit>=1.35.0",
+]
+
+[tool.uv]
+package = false
