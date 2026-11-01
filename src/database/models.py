@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Text, TypeDecorator
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -9,6 +9,27 @@ class Base(DeclarativeBase): ...
 
 class CreateTimestampMixin:
   created_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class JSONStringDBPipe(TypeDecorator):
+  """
+  Um TypeDecorator para armazenar dados JSON como strings no banco de dados.
+  """
+
+  impl = Text
+
+  def process_bind_param(self, value, dialect):
+    if value is not None:
+      import json
+      return json.dumps(value)
+    return value
+
+  def process_result_value(self, value, dialect):
+    if value is not None:
+      import json
+      return json.loads(value)
+    return value
+
 
 
 class Notebook(CreateTimestampMixin, Base):
@@ -41,10 +62,7 @@ class ChatMessage(CreateTimestampMixin, Base):
   notebook_id: Mapped[int] = mapped_column(ForeignKey("notebooks.id", ondelete="CASCADE"), nullable=False)
   role: Mapped[str] = mapped_column(nullable=False)
   content: Mapped[str] = mapped_column(nullable=False)
-  # TODO: Adicionar validação/getter e setter para converter 
-  # os dados Json --> String no armazenamento 
-  # e String --> Json na leitura
-  sources: Mapped[str] = mapped_column(nullable=True)
+  sources: Mapped[dict] = mapped_column(JSONStringDBPipe, nullable=True)
 
   notebook: Mapped["Notebook"] = relationship("Notebook")
 
