@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeignKey, Text, TypeDecorator
+from sqlalchemy import ForeignKey, Text, TypeDecorator, desc
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -37,6 +37,7 @@ class Notebook(CreateTimestampMixin, Base):
 
   id: Mapped[int] = mapped_column(primary_key=True)
   name: Mapped[str] = mapped_column(nullable=False)
+  description: Mapped[str] = mapped_column(nullable=True)
   updated_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
   documents: Mapped[list["Document"]] = relationship("Document", back_populates="notebook", cascade="all, delete-orphan")
