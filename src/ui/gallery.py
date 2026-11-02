@@ -3,7 +3,7 @@ from pathlib import Path
 from src.mock_data import (
     get_notebook,
     get_documents,
-    add_mock_document,
+    add_document,
     delete_document
 )
 
@@ -41,18 +41,11 @@ def render_gallery(notebook_id: str):
             if st.button("Processar e Ingerir Fontes", type="primary"):
                 progress_bar = st.progress(0, text="Processando documentos...")
                 for idx, file in enumerate(uploaded_files):
-                    file_bytes = file.read()
-                    file_size_kb = round(len(file_bytes) / 1024, 1)
-                    file_ext = Path(file.name).suffix.upper().replace(".", "")
-                    # Calcula chunks simulados com base no tamanho do arquivo
-                    estimated_chunks = max(3, int(file_size_kb // 15) + 1)
+                    
 
-                    add_mock_document(
+                    add_document(
                         notebook_id=notebook_id,
-                        name=file.name,
-                        file_type=file_ext,
-                        file_size_kb=file_size_kb,
-                        chunk_count=estimated_chunks
+                        file=file
                     )
                     progress_bar.progress((idx + 1) / len(uploaded_files), text=f"Indexado: {file.name}")
 

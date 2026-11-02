@@ -1,9 +1,11 @@
 import copy
 import time
+from pathlib import Path
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Generator
 import streamlit as st
+from streamlit.typing import UploadedFile
 
 INITIAL_NOTEBOOKS_DATA = [
     {
@@ -169,15 +171,23 @@ def get_documents(notebook_id: str) -> List[Dict[str, Any]]:
     nb = get_notebook(notebook_id)
     return nb["documents"] if nb else []
 
-def add_mock_document(notebook_id: str, name: str, file_type: str, file_size_kb: float, chunk_count: int = 15):
+def add_document(notebook_id: str, file: UploadedFile):
     nb = get_notebook(notebook_id)
     if not nb:
         return
+
+    filename = file.name
+    file_bytes = file.read()
+    file_size_kb = round(len(file_bytes) / 1024, 1)
+    file_ext = Path(file.name).suffix.upper().replace(".", "")
+    # Calcula chunks simulados com base no tamanho do arquivo
+    estimated_chunks = max(3, int(file_size_kb // 15) + 1)
+
     new_doc = {
         "id": f"doc-{uuid.uuid4().hex[:6]}",
-        "name": name,
-        "file_type": file_type.upper(),
-        "chunk_count": chunk_count,
+        "name": filename,
+        "file_type": file_ext.upper(),
+        "chunk_count": estimated_chunks,
         "file_size_kb": file_size_kb,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
