@@ -5,6 +5,7 @@ description = "Protótipo de interface do Gemini NotebookLM em Python e Streamli
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "chromadb>=1.5.9",
     "sqlalchemy[aiosqlite]>=2.0.55",
     "streamlit>=1.35.0",
 ]

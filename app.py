@@ -6,6 +6,7 @@ from src.ui.gallery import render_gallery
 from src.ui.chat import render_chat
 
 from src.database.db import sqlite_engine   # Init DB!
+from src.rag.vector_store import chroma_client  # Init ChromaDB!
 
 # Configuração da página Streamlit
 st.set_page_config(
