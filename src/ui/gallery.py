@@ -1,11 +1,21 @@
 import streamlit as st
-from pathlib import Path
-from src.mock_data import (
-    get_notebook,
-    get_documents,
-    add_document,
+
+from src.config import demonstrative_mode
+from src.services import (
+    get_notebook, 
+    get_documents, 
+    add_document, 
     delete_document
 )
+
+if demonstrative_mode():
+    from src.mock_data import (
+        get_notebook,
+        get_documents,
+        add_document,
+        delete_document
+    )
+
 
 def render_gallery(notebook_id: str):
     notebook = get_notebook(notebook_id)
