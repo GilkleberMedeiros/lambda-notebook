@@ -65,7 +65,7 @@ def update_registry(collection_name: str, data: RegistryData):
 def delete_registry(collection_name: str, where_filter: dict = None):
   collection = get_collection(collection_name)
   if not collection:
-    return
+    raise Exception(f"Não foi possível encontrar uma coleção com o nome {collection_name}")
   
   collection.delete(where=where_filter)
 
