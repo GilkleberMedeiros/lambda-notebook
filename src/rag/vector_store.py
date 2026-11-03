@@ -1,6 +1,13 @@
-import chromadb
-from streamlit.typing import UploadedFile
+from typing import TypedDict
 
+import chromadb
+
+
+class RegistryData(TypedDict):
+  ids: list[any]
+  documents: list[any]
+  embeddings: list[any] | None
+  metadatas: list[dict] | None
 
 chroma_client = chromadb.PersistentClient("./src/storage/chromadb")
 
@@ -21,40 +28,32 @@ def delete_collection(name: str):
     pass
 
 
-def add_document(collection_name: str, document_id: str, file: UploadedFile): 
+def add_registry(collection_name: str, data: RegistryData): 
   collection = get_collection(collection_name)
   if not collection: 
     return 
 
-  filename = file.name
-  file_content = file.read().decode("utf-8")
-
-  # TODO: Adicionar embedding usando modelo próprio. 
-
-  # Define sempre chunk_index=0 e page=1 antes de implementar modelo de embedding próprio.
   collection.add(
-    ids=[document_id],
-    metadatas=[{"filename": filename, "chunk_index": 0, "page": 1, "document_id": document_id}],
-    documents=[file_content]
+    **data
   )
 
-  return {"id": document_id, "document": file_content, "metadata": {"filename": filename, "chunk_index": 0, "page": 1, "document_id": document_id}}
+  return data
 
-def get_all_documents(collection_name: str):
+def get_all_registries(collection_name: str):
   collection = get_collection(collection_name)
   if not collection:
     return []
   
   return collection.get()
 
-def get_documents(collection_name: str, limit: int = None, offset: int = None, where_filter: dict = None): 
+def get_registries(collection_name: str, limit: int = None, offset: int = None, where_filter: dict = None): 
   collection = get_collection(collection_name)
   if not collection:
     return []
   
   return collection.get(where=where_filter)
 
-def delete_document(collection_name: str, where_filter: dict = None):
+def delete_registry(collection_name: str, where_filter: dict = None):
   collection = get_collection(collection_name)
   if not collection:
     return
