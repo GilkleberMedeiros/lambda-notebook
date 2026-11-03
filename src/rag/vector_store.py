@@ -53,6 +53,15 @@ def get_registries(collection_name: str, limit: int = None, offset: int = None, 
   
   return collection.get(where=where_filter)
 
+def update_registry(collection_name: str, data: RegistryData):
+  collection = get_collection(collection_name)
+  if not collection:
+    return 
+
+  collection.update(**data)
+
+  return data
+
 def delete_registry(collection_name: str, where_filter: dict = None):
   collection = get_collection(collection_name)
   if not collection:
