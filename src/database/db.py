@@ -14,7 +14,7 @@ Base.metadata.create_all(sqlite_engine)
 
 @contextmanager
 def get_session():
-  session = sessionmaker(bind=sqlite_engine)()
+  session = sessionmaker(bind=sqlite_engine, expire_on_commit=False)()
 
   try: 
     yield session
