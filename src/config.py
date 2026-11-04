@@ -1,20 +1,24 @@
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-DEFAULT_LLM_API_KEY = ""
-DEFAULT_LLM_MODEL = "gpt-4"
-DEFAULT_EMBEDDING_MODEL = "models/text-embedding-004"
+DEFAULT_LLM_MODEL = "gemini-2.0-flash"
+DEFAULT_EMBEDDING_MODEL = "models/gemini-embedding-2"
 
 
-_LLM_API_KEY = DEFAULT_LLM_API_KEY
-_LLM_MODEL = DEFAULT_LLM_MODEL
-_EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODEL
+_LLM_API_KEY = os.getenv("LLM_API_KEY")
+_LLM_MODEL = os.getenv("LLM_MODEL") or DEFAULT_LLM_MODEL
+_EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL") or DEFAULT_EMBEDDING_MODEL
 
 
 def demonstrative_mode() -> bool:
   """
   Retorna True se o aplicativo estiver em modo demonstrativo (sem chave de API).
   """
-  return _LLM_API_KEY == ""
+  return bool(_LLM_API_KEY)
 
 def set_llm_api_key(api_key: str):
   """
