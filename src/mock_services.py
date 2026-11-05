@@ -7,7 +7,8 @@ from typing import List, Dict, Any, Optional, Generator
 import streamlit as st
 from streamlit.typing import UploadedFile
 
-from src.database.models import Notebook, Document
+from src.database.models import ChatMessage, Notebook, Document
+from src.services import _BaseServices
 
 
 # Permite acesso via colchetes e get aos modelos para manter compatibilidade com componentes legados
@@ -208,7 +209,7 @@ def create_initial_notebooks() -> List[Notebook]:
 
 
 def _generate_notebook_id() -> int:
-    init_mock_state()
+    MockServices.init_mock_state()
     all_nb_ids = [
         nb.id for nb in st.session_state["notebooks"]
         if isinstance(nb.id, int)
@@ -217,7 +218,7 @@ def _generate_notebook_id() -> int:
 
 
 def _generate_document_id() -> int:
-    init_mock_state()
+    MockServices.init_mock_state()
     all_doc_ids = [
         d.id for nb in st.session_state["notebooks"]
         for d in nb.documents
@@ -225,189 +226,204 @@ def _generate_document_id() -> int:
     ]
     return max(all_doc_ids, default=100) + 1
 
+def _generate_message_id() -> int:
+    MockServices.init_mock_state()
+    all_messages_ids = [
+        d.id for nb in st.session_state["notebooks"]
+        for d in nb.messages
+        if isinstance(d.id, int)
+    ]
+    return max(all_messages_ids, default=100) + 1
 
-def init_mock_state():
-    """Inicializa os dados mockados no st.session_state se ainda não existirem."""
-    if "notebooks" not in st.session_state or (
-        st.session_state["notebooks"] and isinstance(st.session_state["notebooks"][0], dict)
-    ):
+
+class MockServices(_BaseServices):
+    uses_mock_services = True
+
+    @staticmethod
+    def init_mock_state():
+        """Inicializa os dados mockados no st.session_state se ainda não existirem."""
+        if "notebooks" not in st.session_state or (
+            st.session_state["notebooks"] and isinstance(st.session_state["notebooks"][0], dict)
+        ):
+            st.session_state["notebooks"] = create_initial_notebooks()
+        if "active_notebook_id" not in st.session_state or st.session_state["active_notebook_id"] == "nb-1":
+            st.session_state["active_notebook_id"] = 1
+
+    @staticmethod
+    def reset_mock_state():
+        """Restaura os dados mockados para o estado original."""
         st.session_state["notebooks"] = create_initial_notebooks()
-    if "active_notebook_id" not in st.session_state or st.session_state["active_notebook_id"] == "nb-1":
         st.session_state["active_notebook_id"] = 1
 
+    @staticmethod
+    def get_all_notebooks() -> List[Notebook]:
+        MockServices.init_mock_state()
+        return st.session_state["notebooks"]
 
-def reset_mock_state():
-    """Restaura os dados mockados para o estado original."""
-    st.session_state["notebooks"] = create_initial_notebooks()
-    st.session_state["active_notebook_id"] = 1
-
-
-def get_all_notebooks() -> List[Notebook]:
-    init_mock_state()
-    return st.session_state["notebooks"]
-
-
-def get_notebook(notebook_id: Any) -> Optional[Notebook]:
-    init_mock_state()
-    for nb in st.session_state["notebooks"]:
-        if (
-            nb.id == notebook_id
-            or str(nb.id) == str(notebook_id)
-            or f"nb-{nb.id}" == str(notebook_id)
-        ):
-            return nb
-    return None
-
-
-def create_notebook(name: str, description: str = None) -> Notebook:
-    init_mock_state()
-    now = datetime.now(timezone.utc)
-    new_nb = Notebook(
-        id=_generate_notebook_id(),
-        name=name,
-        description=description,
-        created_at=now,
-        updated_at=now,
-    )
-    new_nb.documents = []
-    new_nb.messages = []
-    st.session_state["notebooks"].insert(0, new_nb)
-    st.session_state["active_notebook_id"] = new_nb.id
-    return new_nb
-
-
-def delete_notebook(notebook_id: Any):
-    init_mock_state()
-    st.session_state["notebooks"] = [
-        nb for nb in st.session_state["notebooks"]
-        if (
-            nb.id != notebook_id
-            and str(nb.id) != str(notebook_id)
-            and f"nb-{nb.id}" != str(notebook_id)
-        )
-    ]
-    current_active = st.session_state.get("active_notebook_id")
-    if (
-        current_active == notebook_id
-        or str(current_active) == str(notebook_id)
-        or (current_active is not None and f"nb-{current_active}" == str(notebook_id))
-        or (isinstance(notebook_id, str) and notebook_id.startswith("nb-") and str(current_active) == notebook_id.replace("nb-", ""))
-    ):
-        remaining = st.session_state["notebooks"]
-        st.session_state["active_notebook_id"] = remaining[0].id if remaining else None
-
-
-def get_documents(notebook_id: Any) -> List[Document]:
-    nb = get_notebook(notebook_id)
-    return nb.documents if nb else []
-
-
-def add_document(notebook_id: Any, file: UploadedFile) -> Optional[Document]:
-    nb = get_notebook(notebook_id)
-    if not nb:
+    @staticmethod
+    def get_notebook(notebook_id: Any) -> Optional[Notebook]:
+        MockServices.init_mock_state()
+        for nb in st.session_state["notebooks"]:
+            if (
+                nb.id == notebook_id
+                or str(nb.id) == str(notebook_id)
+                or f"nb-{nb.id}" == str(notebook_id)
+            ):
+                return nb
         return None
 
-    filename = file.name
-    try:
-        file_size_bytes = file.size
-    except AttributeError:
-        file_size_bytes = len(file.getvalue()) if hasattr(file, "getvalue") else 0
-
-    file_size_kb = round(file_size_bytes / 1024, 1)
-    file_ext = Path(file.name).suffix.upper().replace(".", "")
-    estimated_chunks = max(3, int(file_size_kb // 15) + 1)
-
-    new_doc = Document(
-        id=_generate_document_id(),
-        notebook_id=nb.id,
-        name=filename,
-        file_type=file_ext,
-        file_path=filename,
-        chunk_count=estimated_chunks,
-        created_at=datetime.now(timezone.utc),
-    )
-    new_doc.file_size_kb = file_size_kb
-    nb.documents.insert(0, new_doc)
-    return new_doc
-
-
-def delete_document(notebook_id: Any, document_id: Any):
-    nb = get_notebook(notebook_id)
-    if not nb:
-        raise Exception("Notebook com o notebook_id informado não existe!")
-    nb.documents = [
-        d for d in nb.documents
-        if (
-            d.id != document_id
-            and str(d.id) != str(document_id)
-            and f"doc-{d.id}" != str(document_id)
+    @staticmethod
+    def create_notebook(name: str, description: str = None) -> Notebook:
+        MockServices.init_mock_state()
+        now = datetime.now(timezone.utc)
+        new_nb = Notebook(
+            id=_generate_notebook_id(),
+            name=name,
+            description=description,
+            created_at=now,
+            updated_at=now,
         )
-    ]
+        new_nb.documents = []
+        new_nb.messages = []
+        st.session_state["notebooks"].insert(0, new_nb)
+        st.session_state["active_notebook_id"] = new_nb.id
+        return new_nb
 
+    @staticmethod
+    def delete_notebook(notebook_id: Any):
+        MockServices.init_mock_state()
+        st.session_state["notebooks"] = [
+            nb for nb in st.session_state["notebooks"]
+            if (
+                nb.id != notebook_id
+                and str(nb.id) != str(notebook_id)
+                and f"nb-{nb.id}" != str(notebook_id)
+            )
+        ]
+        current_active = st.session_state.get("active_notebook_id")
+        if (
+            current_active == notebook_id
+            or str(current_active) == str(notebook_id)
+            or (current_active is not None and f"nb-{current_active}" == str(notebook_id))
+            or (isinstance(notebook_id, str) and notebook_id.startswith("nb-") and str(current_active) == notebook_id.replace("nb-", ""))
+        ):
+            remaining = st.session_state["notebooks"]
+            st.session_state["active_notebook_id"] = remaining[0].id if remaining else None
 
-def get_messages(notebook_id: str) -> List[Dict[str, Any]]:
-    nb = get_notebook(notebook_id)
-    return nb["messages"] if nb else []
+    @staticmethod
+    def get_documents(notebook_id: Any) -> List[Document]:
+        nb = MockServices.get_notebook(notebook_id)
+        return nb.documents if nb else []
 
+    @staticmethod
+    def add_document(notebook_id: Any, file: UploadedFile) -> Optional[Document]:
+        nb = MockServices.get_notebook(notebook_id)
+        if not nb:
+            return None
 
-def add_message(notebook_id: str, role: str, content: str, sources: Optional[List[Dict[str, Any]]] = None):
-    nb = get_notebook(notebook_id)
-    if not nb:
-        return
-    new_msg = {
-        "id": f"msg-{uuid.uuid4().hex[:6]}",
-        "role": role,
-        "content": content,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "sources": sources or []
-    }
-    nb["messages"].append(new_msg)
+        filename = file.name
+        try:
+            file_size_bytes = file.size
+        except AttributeError:
+            file_size_bytes = len(file.getvalue()) if hasattr(file, "getvalue") else 0
 
+        file_size_kb = round(file_size_bytes / 1024, 1)
+        file_ext = Path(file.name).suffix.upper().replace(".", "")
+        estimated_chunks = max(3, int(file_size_kb // 15) + 1)
 
-def clear_messages(notebook_id: str):
-    nb = get_notebook(notebook_id)
-    if not nb:
-        return
-    nb["messages"] = []
+        new_doc = Document(
+            id=_generate_document_id(),
+            notebook_id=nb.id,
+            name=filename,
+            file_type=file_ext,
+            file_path=filename,
+            chunk_count=estimated_chunks,
+            created_at=datetime.now(timezone.utc),
+        )
+        new_doc.file_size_kb = file_size_kb
+        nb.documents.insert(0, new_doc)
+        return new_doc
 
+    @staticmethod
+    def delete_document(notebook_id: Any, document_id: Any):
+        nb = MockServices.get_notebook(notebook_id)
+        if not nb:
+            raise Exception("Notebook com o notebook_id informado não existe!")
+        nb.documents = [
+            d for d in nb.documents
+            if (
+                d.id != document_id
+                and str(d.id) != str(document_id)
+                and f"doc-{d.id}" != str(document_id)
+            )
+        ]
 
-def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = None) -> Generator[str, None, None]:
-    """Gera uma resposta simulada por streaming para a UI."""
-    doc_ref = active_doc_names[0] if active_doc_names else "Documento_Referencia.pdf"
-    
-    response_text = (
-        f"Com base na análise dos documentos contidos neste notebook:\n\n"
-        f"📌 **Tópico Analisado:** Em relação à sua dúvida sobre *\"{query}\"*:\n\n"
-        f"1. **Ponto Central:** As fontes indicam que a metodologia recomendada deve priorizar a consistência, estrutura e rastreabilidade dos dados.\n"
-        f"2. **Aplicação Prática:** Recomenda-se validar as premissas estabelecidas no material de apoio antes de prosseguir com a implementação.\n"
-        f"3. **Observação das Fontes:** Conforme abordado em **{doc_ref}**, as conclusões apontam ganhos de eficiência significativos quando os padrões propostos são seguidos."
-    )
-    
-    words = response_text.split(" ")
-    for word in words:
-        yield word + " "
-        time.sleep(0.03)
+    @staticmethod
+    def get_messages(notebook_id: Any) -> List[ChatMessage]:
+        nb = MockServices.get_notebook(notebook_id)
+        return [ ChatMessage(**m) for m in nb["messages"] ] if nb else []
 
+    @staticmethod
+    def add_message(notebook_id: Any, role: str, content: str, sources: Optional[List[Dict[str, Any]]] = None):
+        nb = MockServices.get_notebook(notebook_id)
+        if not nb:
+            return
+        new_msg = {
+            "id": _generate_message_id(),
+            "role": role,
+            "content": content,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "sources": sources or []
+        }
+        nb["messages"].append(new_msg)
 
-def generate_mock_sources(active_doc_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Retorna fontes citadas mockadas para exibição nos cartões expansíveis da UI."""
-    if active_doc_names and len(active_doc_names) > 0:
+        return ChatMessage(**new_msg)
+
+    @staticmethod
+    def clear_messages(notebook_id: Any):
+        nb = MockServices.get_notebook(notebook_id)
+        if not nb:
+            return
+        nb["messages"] = []
+
+    @staticmethod
+    def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = None) -> Generator[str, None, None]:
+        """Gera uma resposta simulada por streaming para a UI."""
+        doc_ref = active_doc_names[0] if active_doc_names else "Documento_Referencia.pdf"
+        
+        response_text = (
+            f"Com base na análise dos documentos contidos neste notebook:\n\n"
+            f"📌 **Tópico Analisado:** Em relação à sua dúvida sobre *\"{query}\"*:\n\n"
+            f"1. **Ponto Central:** As fontes indicam que a metodologia recomendada deve priorizar a consistência, estrutura e rastreabilidade dos dados.\n"
+            f"2. **Aplicação Prática:** Recomenda-se validar as premissas estabelecidas no material de apoio antes de prosseguir com a implementação.\n"
+            f"3. **Observação das Fontes:** Conforme abordado em **{doc_ref}**, as conclusões apontam ganhos de eficiência significativos quando os padrões propostos são seguidos."
+        )
+        
+        words = response_text.split(" ")
+        for word in words:
+            yield word + " "
+            time.sleep(0.03)
+
+    @staticmethod
+    def generate_mock_sources(active_doc_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Retorna fontes citadas mockadas para exibição nos cartões expansíveis da UI."""
+        if active_doc_names and len(active_doc_names) > 0:
+            return [
+                {
+                    "document_name": active_doc_names[0],
+                    "page": "Página 8, Seção 2",
+                    "snippet": "A consistência das informações apresentadas é essencial para a tomada de decisão estruturada."
+                }
+            ]
         return [
             {
-                "document_name": active_doc_names[0],
-                "page": "Página 8, Seção 2",
-                "snippet": "A consistência das informações apresentadas é essencial para a tomada de decisão estruturada."
+                "document_name": "Guia_Completo_RAG_Avancado.pdf",
+                "page": "Página 14",
+                "snippet": "A implementação de reranking após a consulta vetorial eleva em até 35% a acurácia das respostas finais."
+            },
+            {
+                "document_name": "Boas_Praticas_Chunking_Embeddings.md",
+                "page": "Seção 2.1",
+                "snippet": "Recomenda-se chunk_size entre 800 e 1000 tokens com 150 tokens de overlap para textos técnicos."
             }
         ]
-    return [
-        {
-            "document_name": "Guia_Completo_RAG_Avancado.pdf",
-            "page": "Página 14",
-            "snippet": "A implementação de reranking após a consulta vetorial eleva em até 35% a acurácia das respostas finais."
-        },
-        {
-            "document_name": "Boas_Praticas_Chunking_Embeddings.md",
-            "page": "Seção 2.1",
-            "snippet": "Recomenda-se chunk_size entre 800 e 1000 tokens com 150 tokens de overlap para textos técnicos."
-        }
-    ]

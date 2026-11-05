@@ -1,5 +1,7 @@
 import streamlit as st
-from src.mock_data import init_mock_state, get_all_notebooks, reset_mock_state
+from src.config import demonstrative_mode
+from src.services import get_service
+from src.mock_services import MockServices
 from src.ui.styles import CUSTOM_CSS
 from src.ui.sidebar import render_sidebar
 from src.ui.gallery import render_gallery
@@ -7,6 +9,9 @@ from src.ui.chat import render_chat
 
 from src.database.db import sqlite_engine   # Init DB!
 from src.rag.vector_store import chroma_client  # Init ChromaDB!
+
+
+services = get_service()
 
 # Configuração da página Streamlit
 st.set_page_config(
@@ -20,14 +25,14 @@ st.set_page_config(
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Inicialização dos dados mockados no st.session_state
-init_mock_state()
+MockServices.init_mock_state()
 
 # Renderização da Barra Lateral (Navegação de Pastas / Notebooks)
 render_sidebar()
 
 # Recupera o Notebook Ativo
 active_id = st.session_state.get("active_notebook_id")
-notebooks = get_all_notebooks()
+notebooks = services.get_all_notebooks()
 
 if not active_id and notebooks:
     active_id = notebooks[0]["id"]
@@ -45,6 +50,7 @@ if active_id:
 else:
     st.markdown("## 👋 Bem-vindo ao **Gemini Notebook**")
     st.info("Para começar, crie um novo notebook na barra lateral à esquerda ou restaure os dados de exemplo.")
-    if st.button("Carregar Dados Demonstrativos", type="primary"):
-        reset_mock_state()
-        st.rerun()
+    if demonstrative_mode():
+        if st.button("Carregar Dados Demonstrativos", type="primary"):
+            MockServices.reset_mock_state()
+            st.rerun()

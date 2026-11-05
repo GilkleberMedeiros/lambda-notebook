@@ -1,17 +1,11 @@
 import streamlit as st
-from typing import List
-from src.mock_data import (
-    get_messages,
-    add_message,
-    clear_messages,
-    get_documents,
-    simulate_mock_stream,
-    generate_mock_sources
-)
+from src.mock_services import MockServices
+
+services = MockServices()
 
 def render_chat(notebook_id: str):
-    documents = get_documents(notebook_id)
-    doc_names = [d["name"] for d in documents]
+    documents = services.get_documents(notebook_id)
+    doc_names = [d.name for d in documents]
 
     # Cabeçalho do Chat e Ações
     col_h1, col_h2 = st.columns([0.7, 0.3])
@@ -20,7 +14,7 @@ def render_chat(notebook_id: str):
         st.caption("Converse e extraia insights com base nos documentos do seu notebook.")
     with col_h2:
         if st.button("🧹 Limpar Histórico", use_container_width=True, help="Zera as mensagens deste notebook"):
-            clear_messages(notebook_id)
+            services.clear_messages(notebook_id)
             st.toast("Histórico limpo!")
             st.rerun()
 
@@ -51,15 +45,15 @@ def render_chat(notebook_id: str):
     st.divider()
 
     # Histórico de Mensagens
-    messages = get_messages(notebook_id)
+    messages = services.get_messages(notebook_id)
 
     if not messages:
         st.info("👋 Nenhuma conversa iniciada neste notebook. Envie uma pergunta abaixo ou clique em uma das sugestões acima!")
 
     for msg in messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            sources = msg.get("sources", [])
+        with st.chat_message(msg.role):
+            st.markdown(msg.role)
+            sources = msg.sources or []
             if sources:
                 with st.expander(f"🔍 Fontes consultadas ({len(sources)})", expanded=False):
                     for src in sources:
@@ -81,15 +75,15 @@ def render_chat(notebook_id: str):
             st.markdown(query_to_run)
 
         # Salva pergunta do usuário nos dados mockados
-        add_message(notebook_id=notebook_id, role="user", content=query_to_run)
+        services.add_message(notebook_id=notebook_id, role="user", content=query_to_run)
 
         # Simula resposta do assistente via streaming
         with st.chat_message("assistant"):
             active_selection = selected_doc_names if selected_doc_names else doc_names
-            stream_gen = simulate_mock_stream(query=query_to_run, active_doc_names=active_selection)
+            stream_gen = services.simulate_mock_stream(query=query_to_run, active_doc_names=active_selection)
             
             full_response = st.write_stream(stream_gen)
-            retrieved_sources = generate_mock_sources(active_selection)
+            retrieved_sources = services.generate_mock_sources(active_selection)
 
             if retrieved_sources:
                 with st.expander(f"🔍 Fontes consultadas ({len(retrieved_sources)})", expanded=True):
@@ -103,7 +97,7 @@ def render_chat(notebook_id: str):
                         st.markdown("---")
 
         # Salva resposta do assistente no histórico mockado
-        add_message(
+        services.add_message(
             notebook_id=notebook_id,
             role="assistant",
             content=full_response,

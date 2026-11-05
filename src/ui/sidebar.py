@@ -1,20 +1,12 @@
+from operator import ge
+
 import streamlit as st
 from src.config import demonstrative_mode
-from src.services import (
-  get_all_notebooks,
-  create_notebook,
-  delete_notebook,
-  get_documents,
-)
+from src.services import get_service
 
-if demonstrative_mode():
-  from src.mock_data import (
-    get_all_notebooks,
-    create_notebook,
-    delete_notebook,
-    get_documents,
-    reset_mock_state
-)
+
+services = get_service()
+
 
 def render_sidebar():
   with st.sidebar:
@@ -30,7 +22,7 @@ def render_sidebar():
         submitted = st.form_submit_button("Criar Notebook", use_container_width=True)
         if submitted:
           if new_name.strip():
-            nb = create_notebook(name=new_name.strip(), description=new_desc.strip())
+            nb = services.create_notebook(name=new_name.strip(), description=new_desc.strip())
             st.success(f"Notebook '{new_name}' criado!")
             st.rerun()
           else:
@@ -38,37 +30,37 @@ def render_sidebar():
 
     # Listagem de Notebooks
     st.markdown("#### 📁 **Pastas (Notebooks)**")
-    notebooks = get_all_notebooks()
+    notebooks = services.get_all_notebooks()
 
     if not notebooks:
       st.info("Nenhum notebook cadastrado.")
       if demonstrative_mode():
         if st.button("Carregar Dados de Exemplo"):
-          reset_mock_state()
+          services.reset_mock_state()
           st.rerun()
       return
 
     active_id = st.session_state.get("active_notebook_id")
 
     for nb in notebooks:
-      docs = get_documents(nb["id"])
-      is_active = (nb["id"] == active_id)
+      docs = services.get_documents(nb.id)
+      is_active = (nb.id == active_id)
       col1, col2 = st.columns([0.82, 0.18])
 
       with col1:
-        btn_label = f"{'🔹 ' if is_active else '📁 '} {nb['name']} ({len(docs)})"
+        btn_label = f"{'🔹 ' if is_active else '📁 '} {nb.name} ({len(docs)})"
         if st.button(
           btn_label,
-          key=f"nb_btn_{nb['id']}",
+          key=f"nb_btn_{nb.id}",
           use_container_width=True,
           type="primary" if is_active else "secondary"
         ):
-          st.session_state["active_notebook_id"] = nb["id"]
+          st.session_state["active_notebook_id"] = nb.id
           st.rerun()
 
       with col2:
-        if st.button("🗑️", key=f"del_nb_{nb['id']}", help="Excluir este notebook"):
-          delete_notebook(nb["id"])
+        if st.button("🗑️", key=f"del_nb_{nb.id}", help="Excluir este notebook"):
+          services.delete_notebook(nb.id)
           st.toast("Notebook excluído.")
           st.rerun()
 
@@ -77,6 +69,6 @@ def render_sidebar():
     if demonstrative_mode():
       # Botão para restaurar dados mockados
       if st.button("🔄 Restaurar Dados Demonstrativos", use_container_width=True):
-        reset_mock_state()
+        services.reset_mock_state()
         st.toast("Dados de demonstração restaurados!")
         st.rerun()
