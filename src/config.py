@@ -16,9 +16,10 @@ _EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL") or DEFAULT_EMBEDDING_MODEL
 
 def demonstrative_mode() -> bool:
   """
-  Retorna True se o aplicativo estiver em modo demonstrativo (sem chave de API).
+  Retorna True se o aplicativo estiver em modo demonstrativo (sem chave de API) e 
+  False caso contrário. 
   """
-  return bool(_LLM_API_KEY)
+  return not _LLM_API_KEY
 
 def set_llm_api_key(api_key: str):
   """
