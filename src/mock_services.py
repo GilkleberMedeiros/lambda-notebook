@@ -2,10 +2,49 @@ import copy
 import time
 from pathlib import Path
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Generator
 import streamlit as st
 from streamlit.typing import UploadedFile
+
+from src.database.models import Notebook, Document
+
+
+# Permite acesso via colchetes e get aos modelos para manter compatibilidade com componentes legados
+if not hasattr(Notebook, "__getitem__"):
+    def _nb_getitem(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
+    Notebook.__getitem__ = _nb_getitem
+
+if not hasattr(Notebook, "__setitem__"):
+    def _nb_setitem(self, key, value):
+        setattr(self, key, value)
+    Notebook.__setitem__ = _nb_setitem
+
+if not hasattr(Notebook, "get"):
+    def _nb_get(self, key, default=None):
+        return getattr(self, key, default)
+    Notebook.get = _nb_get
+
+if not hasattr(Document, "__getitem__"):
+    def _doc_getitem(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
+    Document.__getitem__ = _doc_getitem
+
+if not hasattr(Document, "__setitem__"):
+    def _doc_setitem(self, key, value):
+        setattr(self, key, value)
+    Document.__setitem__ = _doc_setitem
+
+if not hasattr(Document, "get"):
+    def _doc_get(self, key, default=None):
+        return getattr(self, key, default)
+    Document.get = _doc_get
+
 
 INITIAL_NOTEBOOKS_DATA = [
     {
@@ -123,85 +162,193 @@ INITIAL_NOTEBOOKS_DATA = [
     }
 ]
 
+
+def create_initial_notebooks() -> List[Notebook]:
+    notebooks = []
+    for nb_data in INITIAL_NOTEBOOKS_DATA:
+        raw_id = nb_data["id"]
+        nb_id = int(raw_id.replace("nb-", "")) if isinstance(raw_id, str) and raw_id.startswith("nb-") else int(raw_id)
+        
+        try:
+            created_at = datetime.strptime(nb_data["created_at"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        except Exception:
+            created_at = datetime.now(timezone.utc)
+
+        nb = Notebook(
+            id=nb_id,
+            name=nb_data["name"],
+            description=nb_data.get("description"),
+            created_at=created_at,
+            updated_at=created_at,
+        )
+
+        for doc_data in nb_data.get("documents", []):
+            raw_doc_id = doc_data["id"]
+            doc_id = int(raw_doc_id.replace("doc-", "")) if isinstance(raw_doc_id, str) and raw_doc_id.startswith("doc-") else int(raw_doc_id)
+            try:
+                doc_created_at = datetime.strptime(doc_data["created_at"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            except Exception:
+                doc_created_at = datetime.now(timezone.utc)
+
+            doc = Document(
+                id=doc_id,
+                notebook_id=nb_id,
+                name=doc_data["name"],
+                file_type=doc_data["file_type"],
+                file_path=doc_data["name"],
+                chunk_count=doc_data.get("chunk_count", 0),
+                created_at=doc_created_at,
+            )
+            doc.file_size_kb = doc_data.get("file_size_kb", 0.0)
+            nb.documents.append(doc)
+
+        nb.messages = copy.deepcopy(nb_data.get("messages", []))
+        notebooks.append(nb)
+    return notebooks
+
+
+def _generate_notebook_id() -> int:
+    init_mock_state()
+    all_nb_ids = [
+        nb.id for nb in st.session_state["notebooks"]
+        if isinstance(nb.id, int)
+    ]
+    return max(all_nb_ids, default=0) + 1
+
+
+def _generate_document_id() -> int:
+    init_mock_state()
+    all_doc_ids = [
+        d.id for nb in st.session_state["notebooks"]
+        for d in nb.documents
+        if isinstance(d.id, int)
+    ]
+    return max(all_doc_ids, default=100) + 1
+
+
 def init_mock_state():
     """Inicializa os dados mockados no st.session_state se ainda não existirem."""
-    if "notebooks" not in st.session_state:
-        st.session_state["notebooks"] = copy.deepcopy(INITIAL_NOTEBOOKS_DATA)
-    if "active_notebook_id" not in st.session_state:
-        st.session_state["active_notebook_id"] = "nb-1"
+    if "notebooks" not in st.session_state or (
+        st.session_state["notebooks"] and isinstance(st.session_state["notebooks"][0], dict)
+    ):
+        st.session_state["notebooks"] = create_initial_notebooks()
+    if "active_notebook_id" not in st.session_state or st.session_state["active_notebook_id"] == "nb-1":
+        st.session_state["active_notebook_id"] = 1
+
 
 def reset_mock_state():
     """Restaura os dados mockados para o estado original."""
-    st.session_state["notebooks"] = copy.deepcopy(INITIAL_NOTEBOOKS_DATA)
-    st.session_state["active_notebook_id"] = "nb-1"
+    st.session_state["notebooks"] = create_initial_notebooks()
+    st.session_state["active_notebook_id"] = 1
 
-def get_all_notebooks() -> List[Dict[str, Any]]:
+
+def get_all_notebooks() -> List[Notebook]:
     init_mock_state()
     return st.session_state["notebooks"]
 
-def get_notebook(notebook_id: str) -> Optional[Dict[str, Any]]:
+
+def get_notebook(notebook_id: Any) -> Optional[Notebook]:
     init_mock_state()
     for nb in st.session_state["notebooks"]:
-        if nb["id"] == notebook_id:
+        if (
+            nb.id == notebook_id
+            or str(nb.id) == str(notebook_id)
+            or f"nb-{nb.id}" == str(notebook_id)
+        ):
             return nb
     return None
 
-def create_notebook(name: str, description: str = "") -> Dict[str, Any]:
+
+def create_notebook(name: str, description: str = None) -> Notebook:
     init_mock_state()
-    new_nb = {
-        "id": f"nb-{uuid.uuid4().hex[:6]}",
-        "name": name,
-        "description": description,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "documents": [],
-        "messages": []
-    }
+    now = datetime.now(timezone.utc)
+    new_nb = Notebook(
+        id=_generate_notebook_id(),
+        name=name,
+        description=description,
+        created_at=now,
+        updated_at=now,
+    )
+    new_nb.documents = []
+    new_nb.messages = []
     st.session_state["notebooks"].insert(0, new_nb)
-    st.session_state["active_notebook_id"] = new_nb["id"]
+    st.session_state["active_notebook_id"] = new_nb.id
     return new_nb
 
-def delete_notebook(notebook_id: str):
+
+def delete_notebook(notebook_id: Any):
     init_mock_state()
-    st.session_state["notebooks"] = [nb for nb in st.session_state["notebooks"] if nb["id"] != notebook_id]
-    if st.session_state.get("active_notebook_id") == notebook_id:
+    st.session_state["notebooks"] = [
+        nb for nb in st.session_state["notebooks"]
+        if (
+            nb.id != notebook_id
+            and str(nb.id) != str(notebook_id)
+            and f"nb-{nb.id}" != str(notebook_id)
+        )
+    ]
+    current_active = st.session_state.get("active_notebook_id")
+    if (
+        current_active == notebook_id
+        or str(current_active) == str(notebook_id)
+        or (current_active is not None and f"nb-{current_active}" == str(notebook_id))
+        or (isinstance(notebook_id, str) and notebook_id.startswith("nb-") and str(current_active) == notebook_id.replace("nb-", ""))
+    ):
         remaining = st.session_state["notebooks"]
-        st.session_state["active_notebook_id"] = remaining[0]["id"] if remaining else None
+        st.session_state["active_notebook_id"] = remaining[0].id if remaining else None
 
-def get_documents(notebook_id: str) -> List[Dict[str, Any]]:
+
+def get_documents(notebook_id: Any) -> List[Document]:
     nb = get_notebook(notebook_id)
-    return nb["documents"] if nb else []
+    return nb.documents if nb else []
 
-def add_document(notebook_id: str, file: UploadedFile):
+
+def add_document(notebook_id: Any, file: UploadedFile) -> Optional[Document]:
     nb = get_notebook(notebook_id)
     if not nb:
-        return
+        return None
 
     filename = file.name
-    file_bytes = file.read()
-    file_size_kb = round(len(file_bytes) / 1024, 1)
+    try:
+        file_size_bytes = file.size
+    except AttributeError:
+        file_size_bytes = len(file.getvalue()) if hasattr(file, "getvalue") else 0
+
+    file_size_kb = round(file_size_bytes / 1024, 1)
     file_ext = Path(file.name).suffix.upper().replace(".", "")
-    # Calcula chunks simulados com base no tamanho do arquivo
     estimated_chunks = max(3, int(file_size_kb // 15) + 1)
 
-    new_doc = {
-        "id": f"doc-{uuid.uuid4().hex[:6]}",
-        "name": filename,
-        "file_type": file_ext.upper(),
-        "chunk_count": estimated_chunks,
-        "file_size_kb": file_size_kb,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
-    }
-    nb["documents"].insert(0, new_doc)
+    new_doc = Document(
+        id=_generate_document_id(),
+        notebook_id=nb.id,
+        name=filename,
+        file_type=file_ext,
+        file_path=filename,
+        chunk_count=estimated_chunks,
+        created_at=datetime.now(timezone.utc),
+    )
+    new_doc.file_size_kb = file_size_kb
+    nb.documents.insert(0, new_doc)
+    return new_doc
 
-def delete_document(notebook_id: str, document_id: str):
+
+def delete_document(notebook_id: Any, document_id: Any):
     nb = get_notebook(notebook_id)
     if not nb:
-        return
-    nb["documents"] = [d for d in nb["documents"] if d["id"] != document_id]
+        raise Exception("Notebook com o notebook_id informado não existe!")
+    nb.documents = [
+        d for d in nb.documents
+        if (
+            d.id != document_id
+            and str(d.id) != str(document_id)
+            and f"doc-{d.id}" != str(document_id)
+        )
+    ]
+
 
 def get_messages(notebook_id: str) -> List[Dict[str, Any]]:
     nb = get_notebook(notebook_id)
     return nb["messages"] if nb else []
+
 
 def add_message(notebook_id: str, role: str, content: str, sources: Optional[List[Dict[str, Any]]] = None):
     nb = get_notebook(notebook_id)
@@ -216,11 +363,13 @@ def add_message(notebook_id: str, role: str, content: str, sources: Optional[Lis
     }
     nb["messages"].append(new_msg)
 
+
 def clear_messages(notebook_id: str):
     nb = get_notebook(notebook_id)
     if not nb:
         return
     nb["messages"] = []
+
 
 def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = None) -> Generator[str, None, None]:
     """Gera uma resposta simulada por streaming para a UI."""
@@ -238,6 +387,7 @@ def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = Non
     for word in words:
         yield word + " "
         time.sleep(0.03)
+
 
 def generate_mock_sources(active_doc_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Retorna fontes citadas mockadas para exibição nos cartões expansíveis da UI."""
