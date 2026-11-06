@@ -35,7 +35,7 @@ active_id = st.session_state.get("active_notebook_id")
 notebooks = services.get_all_notebooks()
 
 if not active_id and notebooks:
-    active_id = notebooks[0]["id"]
+    active_id = notebooks[0].id
     st.session_state["active_notebook_id"] = active_id
 
 # Área Principal da Aplicação
