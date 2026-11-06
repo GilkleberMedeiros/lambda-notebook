@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Literal, Protocol
+from datetime import datetime
 from sqlalchemy import select, delete
 from streamlit.typing import UploadedFile
 
-from src.config import demonstrative_mode
+from src.config import demonstrative_mode, CHAT_HISTORY_CONTEXT_WINDOW_SIZE
 from src.database.db import get_session
 from src.database.models import ChatMessage, Notebook, Document
 from src.database import repository as repo
@@ -35,6 +36,15 @@ class _BaseServices(Protocol):
 
   @staticmethod
   def delete_document(notebook_id: int, document_id: any) -> None: ...
+
+  @staticmethod
+  def get_messages(notebook_id: int) -> list[ChatMessage]: ...
+
+  @staticmethod
+  def add_message(notebook_id: int, role: Literal["user", "assistant"], content: str, sources: dict[str, any] = None) -> ChatMessage | None: ...
+
+  @staticmethod
+  def clear_messages(notebook_id: int) -> None: ...
     
 
 class Services(_BaseServices): 
@@ -45,6 +55,7 @@ class Services(_BaseServices):
     with get_session() as session:
       nb = repo.add_one(model=Notebook, session=session, name=name, description=description)
       _ = vstore.create_collection(make_nb_collection_name(nb.id))
+      __ = vstore.create_collection(make_nb_chat_collection_name(nb.id))
 
       return nb
   
@@ -63,7 +74,9 @@ class Services(_BaseServices):
     with get_session() as session:
       repo.delete(model=Notebook, session=session, instance_id=notebook_id)
       coll_name = make_nb_collection_name(notebook_id)
+      chat_coll_name = make_nb_chat_collection_name(notebook_id)
       vstore.delete_collection(coll_name)
+      vstore.delete_collection(chat_coll_name)
 
   
   @staticmethod
@@ -173,8 +186,63 @@ class Services(_BaseServices):
       if not notebook:
         return None
 
-      message = repo.add_one(ChatMessage, session, role=role, content=content, sources=sources)
-      return message
+      try:
+        message = repo.add_one(ChatMessage, session, notebook_id=notebook.id, role=role, content=content, sources=sources)
+
+        chunks = ingestion.split_documents([message.content])
+        # Flaten chunks array
+        chunks = [ chunk for nested in chunks for chunk in nested ]
+        embeddings = ingestion.embed_documents(chunks)
+
+        coll_name = make_nb_chat_collection_name(notebook_id)
+
+        ids = []
+        contents = []
+        metadatas = []
+        for idx, chunk in enumerate(chunks):
+          ids.append(f"chatmsg-{message.id}_chunk-{idx}")
+          cnt = chunk.page_content if isinstance(chunk, ingestion.Document) else chunk
+          contents.append(cnt)
+          metadatas.append({
+            "chat_message_id": message.id, 
+            "role": message.role, 
+            "chunk_index": idx, 
+            "created_at": message.created_at.isoformat()
+          })
+
+        msg = vstore.add_registry(coll_name, {
+          "ids": ids,
+          "documents": contents, 
+          "embeddings": embeddings, 
+          "metadatas": metadatas
+        })
+        if not msg:
+          raise Exception("Não foi possível salvar a mensagem no banco de embeddings.")
+
+        # Pega todos os registros e o tamanho da janela de contexto do chat
+        r = vstore.get_all_registries(coll_name)
+        if r is not None:
+          f = lambda m: (m["created_at"], m["chat_message_id"])
+          message_seq = { f(m) for m in r["metadatas"] }
+          chat_context_size = len(message_seq)
+
+          # Deleta as mensagens mais antigas quando o tamanho da janela de 
+          # contexto é excedido
+          if chat_context_size >= CHAT_HISTORY_CONTEXT_WINDOW_SIZE:
+            diff = chat_context_size - CHAT_HISTORY_CONTEXT_WINDOW_SIZE
+            for _ in range(diff):
+              id = min(*message_seq, key=lambda v: datetime.fromisoformat(v[0]))
+              vstore.delete_registry(coll_name, {"chat_message_id": id})
+
+        return message
+
+      except Exception as e:
+        # Deleta o registro no vector_store em caso de erro
+        coll_name = make_nb_chat_collection_name(notebook_id)
+        vstore.delete_registry(coll_name, {"chat_message_id": message.id})
+
+        # Repassa o erro para rollback no DB
+        raise e
 
   @staticmethod
   def clear_messages(notebook_id: int):
@@ -185,9 +253,16 @@ class Services(_BaseServices):
 
       smt = delete(ChatMessage).where(ChatMessage.notebook_id == notebook_id)
       session.execute(smt)
+      # Limpa os embeddings das mensagens
+      coll_name = make_nb_chat_collection_name(notebook_id)
+      vstore.delete_collection(coll_name)
+      vstore.create_collection(coll_name)
 
 def make_nb_collection_name(notebook_id: int) -> str:
   return f"notebook_{notebook_id}"
+
+def make_nb_chat_collection_name(notebook_id: int) -> str: 
+  return f"notebook_{notebook_id}_chat"
 
 
 

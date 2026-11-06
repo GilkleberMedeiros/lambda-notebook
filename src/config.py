@@ -7,6 +7,7 @@ load_dotenv()
 
 DEFAULT_LLM_MODEL = "gemini-2.0-flash"
 DEFAULT_EMBEDDING_MODEL = "models/gemini-embedding-2"
+CHAT_HISTORY_CONTEXT_WINDOW_SIZE = 15
 
 
 _LLM_API_KEY = os.getenv("LLM_API_KEY")
