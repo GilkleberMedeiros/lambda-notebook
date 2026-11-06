@@ -1,50 +1,12 @@
-import copy
-import time
-from pathlib import Path
-import uuid
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Generator
+from pathlib import Path
+import time
+from typing import Any, Dict, Generator, List, Literal, Optional, Union
 import streamlit as st
 from streamlit.typing import UploadedFile
 
 from src.database.models import ChatMessage, Notebook, Document
 from src.services import _BaseServices
-
-
-# Permite acesso via colchetes e get aos modelos para manter compatibilidade com componentes legados
-if not hasattr(Notebook, "__getitem__"):
-    def _nb_getitem(self, key):
-        if hasattr(self, key):
-            return getattr(self, key)
-        raise KeyError(key)
-    Notebook.__getitem__ = _nb_getitem
-
-if not hasattr(Notebook, "__setitem__"):
-    def _nb_setitem(self, key, value):
-        setattr(self, key, value)
-    Notebook.__setitem__ = _nb_setitem
-
-if not hasattr(Notebook, "get"):
-    def _nb_get(self, key, default=None):
-        return getattr(self, key, default)
-    Notebook.get = _nb_get
-
-if not hasattr(Document, "__getitem__"):
-    def _doc_getitem(self, key):
-        if hasattr(self, key):
-            return getattr(self, key)
-        raise KeyError(key)
-    Document.__getitem__ = _doc_getitem
-
-if not hasattr(Document, "__setitem__"):
-    def _doc_setitem(self, key, value):
-        setattr(self, key, value)
-    Document.__setitem__ = _doc_setitem
-
-if not hasattr(Document, "get"):
-    def _doc_get(self, key, default=None):
-        return getattr(self, key, default)
-    Document.get = _doc_get
 
 
 INITIAL_NOTEBOOKS_DATA = [
@@ -203,7 +165,25 @@ def create_initial_notebooks() -> List[Notebook]:
             doc.file_size_kb = doc_data.get("file_size_kb", 0.0)
             nb.documents.append(doc)
 
-        nb.messages = copy.deepcopy(nb_data.get("messages", []))
+        nb.messages = []
+        for msg_data in nb_data.get("messages", []):
+            raw_msg_id = msg_data["id"]
+            msg_id = int(raw_msg_id.replace("msg-", "")) if isinstance(raw_msg_id, str) and raw_msg_id.startswith("msg-") else int(raw_msg_id)
+            try:
+                msg_created_at = datetime.strptime(msg_data["created_at"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            except Exception:
+                msg_created_at = datetime.now(timezone.utc)
+
+            chat_msg = ChatMessage(
+                id=msg_id,
+                notebook_id=nb_id,
+                role=msg_data["role"],
+                content=msg_data["content"],
+                sources=msg_data.get("sources"),
+                created_at=msg_created_at,
+            )
+            nb.messages.append(chat_msg)
+
         notebooks.append(nb)
     return notebooks
 
@@ -229,9 +209,9 @@ def _generate_document_id() -> int:
 def _generate_message_id() -> int:
     MockServices.init_mock_state()
     all_messages_ids = [
-        d.id for nb in st.session_state["notebooks"]
-        for d in nb.messages
-        if isinstance(d.id, int)
+        m.id for nb in st.session_state["notebooks"]
+        for m in nb.messages
+        if isinstance(m.id, int)
     ]
     return max(all_messages_ids, default=100) + 1
 
@@ -246,7 +226,7 @@ class MockServices(_BaseServices):
             st.session_state["notebooks"] and isinstance(st.session_state["notebooks"][0], dict)
         ):
             st.session_state["notebooks"] = create_initial_notebooks()
-        if "active_notebook_id" not in st.session_state or st.session_state["active_notebook_id"] == "nb-1":
+        if "active_notebook_id" not in st.session_state:
             st.session_state["active_notebook_id"] = 1
 
     @staticmethod
@@ -261,14 +241,10 @@ class MockServices(_BaseServices):
         return st.session_state["notebooks"]
 
     @staticmethod
-    def get_notebook(notebook_id: Any) -> Optional[Notebook]:
+    def get_notebook(notebook_id: int) -> Optional[Notebook]:
         MockServices.init_mock_state()
         for nb in st.session_state["notebooks"]:
-            if (
-                nb.id == notebook_id
-                or str(nb.id) == str(notebook_id)
-                or f"nb-{nb.id}" == str(notebook_id)
-            ):
+            if nb.id == notebook_id or str(nb.id) == str(notebook_id):
                 return nb
         return None
 
@@ -290,33 +266,24 @@ class MockServices(_BaseServices):
         return new_nb
 
     @staticmethod
-    def delete_notebook(notebook_id: Any):
+    def delete_notebook(notebook_id: int):
         MockServices.init_mock_state()
         st.session_state["notebooks"] = [
             nb for nb in st.session_state["notebooks"]
-            if (
-                nb.id != notebook_id
-                and str(nb.id) != str(notebook_id)
-                and f"nb-{nb.id}" != str(notebook_id)
-            )
+            if nb.id != notebook_id and str(nb.id) != str(notebook_id)
         ]
         current_active = st.session_state.get("active_notebook_id")
-        if (
-            current_active == notebook_id
-            or str(current_active) == str(notebook_id)
-            or (current_active is not None and f"nb-{current_active}" == str(notebook_id))
-            or (isinstance(notebook_id, str) and notebook_id.startswith("nb-") and str(current_active) == notebook_id.replace("nb-", ""))
-        ):
+        if current_active == notebook_id or str(current_active) == str(notebook_id):
             remaining = st.session_state["notebooks"]
             st.session_state["active_notebook_id"] = remaining[0].id if remaining else None
 
     @staticmethod
-    def get_documents(notebook_id: Any) -> List[Document]:
+    def get_documents(notebook_id: int) -> List[Document]:
         nb = MockServices.get_notebook(notebook_id)
         return nb.documents if nb else []
 
     @staticmethod
-    def add_document(notebook_id: Any, file: UploadedFile) -> Optional[Document]:
+    def add_document(notebook_id: int, file: UploadedFile) -> Optional[Document]:
         nb = MockServices.get_notebook(notebook_id)
         if not nb:
             return None
@@ -345,46 +312,51 @@ class MockServices(_BaseServices):
         return new_doc
 
     @staticmethod
-    def delete_document(notebook_id: Any, document_id: Any):
+    def delete_document(notebook_id: int, document_id: int):
         nb = MockServices.get_notebook(notebook_id)
         if not nb:
             raise Exception("Notebook com o notebook_id informado não existe!")
         nb.documents = [
             d for d in nb.documents
-            if (
-                d.id != document_id
-                and str(d.id) != str(document_id)
-                and f"doc-{d.id}" != str(document_id)
-            )
+            if d.id != document_id and str(d.id) != str(document_id)
         ]
 
     @staticmethod
-    def get_messages(notebook_id: Any) -> List[ChatMessage]:
-        nb = MockServices.get_notebook(notebook_id)
-        return [ ChatMessage(**m) for m in nb["messages"] ] if nb else []
-
-    @staticmethod
-    def add_message(notebook_id: Any, role: str, content: str, sources: Optional[List[Dict[str, Any]]] = None):
+    def get_messages(notebook_id: int) -> List[ChatMessage]:
         nb = MockServices.get_notebook(notebook_id)
         if not nb:
-            return
-        new_msg = {
-            "id": _generate_message_id(),
-            "role": role,
-            "content": content,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "sources": sources or []
-        }
-        nb["messages"].append(new_msg)
-
-        return ChatMessage(**new_msg)
+            raise Exception(f"Notebook com o notebook_id={notebook_id} não existe!")
+        return nb.messages
 
     @staticmethod
-    def clear_messages(notebook_id: Any):
+    def add_message(
+        notebook_id: int,
+        role: Literal["user", "assistant"],
+        content: str,
+        sources: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+    ) -> Optional[ChatMessage]:
         nb = MockServices.get_notebook(notebook_id)
         if not nb:
-            return
-        nb["messages"] = []
+            return None
+
+        new_msg = ChatMessage(
+            id=_generate_message_id(),
+            notebook_id=nb.id,
+            role=role,
+            content=content,
+            sources=sources,
+            created_at=datetime.now(timezone.utc),
+        )
+        nb.messages.append(new_msg)
+
+        return new_msg
+
+    @staticmethod
+    def clear_messages(notebook_id: int):
+        nb = MockServices.get_notebook(notebook_id)
+        if not nb:
+            raise Exception(f"Notebook com o notebook_id={notebook_id} não existe!")
+        nb.messages = []
 
     @staticmethod
     def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = None) -> Generator[str, None, None]:

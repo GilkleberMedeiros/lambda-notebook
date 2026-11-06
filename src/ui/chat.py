@@ -52,7 +52,7 @@ def render_chat(notebook_id: str):
 
     for msg in messages:
         with st.chat_message(msg.role):
-            st.markdown(msg.role)
+            st.markdown(msg.content)
             sources = msg.sources or []
             if sources:
                 with st.expander(f"🔍 Fontes consultadas ({len(sources)})", expanded=False):
