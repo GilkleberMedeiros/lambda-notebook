@@ -31,7 +31,7 @@ def delete_collection(name: str):
 def add_registry(collection_name: str, data: RegistryData): 
   collection = get_collection(collection_name)
   if not collection: 
-    return 
+    return None
 
   collection.add(
     **data
@@ -42,21 +42,21 @@ def add_registry(collection_name: str, data: RegistryData):
 def get_all_registries(collection_name: str):
   collection = get_collection(collection_name)
   if not collection:
-    return []
+    return None
   
   return collection.get()
 
 def get_registries(collection_name: str, limit: int = None, offset: int = None, where_filter: dict = None): 
   collection = get_collection(collection_name)
   if not collection:
-    return []
+    return None
   
   return collection.get(where=where_filter, limit=limit, offset=offset)
 
 def update_registry(collection_name: str, data: RegistryData):
   collection = get_collection(collection_name)
   if not collection:
-    return 
+    return None
 
   collection.update(**data)
 
@@ -73,9 +73,9 @@ def delete_registry(collection_name: str, where_filter: dict = None):
 def query_documents(collection_name: str, query_texts: list[str] = None, query_embeddings: list[str] = None, nresults: int = 5, where_filter: dict = None):
   collection = get_collection(collection_name)
   if not collection:
-    return []
+    return None
 
   if not query_texts and not query_embeddings:
-    return []
+    return None
   
   return collection.query(query_embeddings, query_texts, n_results=nresults, where=where_filter)
