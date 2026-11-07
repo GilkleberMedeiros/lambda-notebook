@@ -11,6 +11,7 @@ from src.database import repository as repo
 
 from src.rag import vector_store as vstore
 from src.rag import ingestion
+from src.utils import *
 
 
 class _BaseServices(Protocol):
@@ -257,13 +258,6 @@ class Services(_BaseServices):
       coll_name = make_nb_chat_collection_name(notebook_id)
       vstore.delete_collection(coll_name)
       vstore.create_collection(coll_name)
-
-def make_nb_collection_name(notebook_id: int) -> str:
-  return f"notebook_{notebook_id}"
-
-def make_nb_chat_collection_name(notebook_id: int) -> str: 
-  return f"notebook_{notebook_id}_chat"
-
 
 
 def get_service():
