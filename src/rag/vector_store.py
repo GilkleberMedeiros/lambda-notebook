@@ -70,7 +70,7 @@ def delete_registry(collection_name: str, where_filter: dict = None):
   collection.delete(where=where_filter)
 
 
-def query_documents(collection_name: str, query_texts: list[str] = None, query_embeddings: list[str] = None, nresults: int = 5, where_filter: dict = None):
+def query_documents(collection_name: str, query_texts: list = None, query_embeddings: list = None, nresults: int = 5, where_filter: dict = None):
   collection = get_collection(collection_name)
   if not collection:
     return None
