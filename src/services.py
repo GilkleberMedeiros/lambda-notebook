@@ -232,7 +232,7 @@ class Services(_BaseServices):
           if chat_context_size >= CHAT_HISTORY_CONTEXT_WINDOW_SIZE:
             diff = chat_context_size - CHAT_HISTORY_CONTEXT_WINDOW_SIZE
             for _ in range(diff):
-              id = min(*message_seq, key=lambda v: datetime.fromisoformat(v[0]))
+              id = min(*message_seq, key=lambda v: datetime.fromisoformat(v[0]))[1]
               vstore.delete_registry(coll_name, {"chat_message_id": id})
 
         return message
