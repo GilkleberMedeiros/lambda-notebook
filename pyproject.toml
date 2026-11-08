@@ -11,6 +11,7 @@ dependencies = [
     "langchain>=1.4.8",
     "langchain-community>=0.4.2",
     "langchain-google-genai>=4.4.2",
+    "pypdf>=7.0.0",
     "python-dotenv>=1.2.4",
     "sqlalchemy[aiosqlite]>=2.0.55",
     "streamlit>=1.35.0",
