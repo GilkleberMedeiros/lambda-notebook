@@ -359,43 +359,36 @@ class MockServices(_BaseServices):
         nb.messages = []
 
     @staticmethod
-    def simulate_mock_stream(query: str, active_doc_names: Optional[List[str]] = None) -> Generator[str, None, None]:
-        """Gera uma resposta simulada por streaming para a UI."""
-        doc_ref = active_doc_names[0] if active_doc_names else "Documento_Referencia.pdf"
+    def query_llm(query: str, notebook_id: int, chat_messages: list[ChatMessage] = [], selected_docs_ids: list[int] = None):
+        """Gera uma resposta simulada para a UI."""
         
         response_text = (
             f"Com base na análise dos documentos contidos neste notebook:\n\n"
             f"📌 **Tópico Analisado:** Em relação à sua dúvida sobre *\"{query}\"*:\n\n"
             f"1. **Ponto Central:** As fontes indicam que a metodologia recomendada deve priorizar a consistência, estrutura e rastreabilidade dos dados.\n"
             f"2. **Aplicação Prática:** Recomenda-se validar as premissas estabelecidas no material de apoio antes de prosseguir com a implementação.\n"
-            f"3. **Observação das Fontes:** Conforme abordado em **{doc_ref}**, as conclusões apontam ganhos de eficiência significativos quando os padrões propostos são seguidos."
         )
-        
-        words = response_text.split(" ")
-        for word in words:
-            yield word + " "
-            time.sleep(0.03)
 
-    @staticmethod
-    def generate_mock_sources(active_doc_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """Retorna fontes citadas mockadas para exibição nos cartões expansíveis da UI."""
-        if active_doc_names and len(active_doc_names) > 0:
-            return [
-                {
-                    "document_name": active_doc_names[0],
-                    "page": "Página 8, Seção 2",
-                    "snippet": "A consistência das informações apresentadas é essencial para a tomada de decisão estruturada."
-                }
-            ]
-        return [
+        sources = [
             {
-                "document_name": "Guia_Completo_RAG_Avancado.pdf",
+                "name": "Guia_Completo_RAG_Avancado.pdf",
                 "page": "Página 14",
                 "snippet": "A implementação de reranking após a consulta vetorial eleva em até 35% a acurácia das respostas finais."
             },
             {
-                "document_name": "Boas_Praticas_Chunking_Embeddings.md",
+                "name": "Boas_Praticas_Chunking_Embeddings.md",
                 "page": "Seção 2.1",
                 "snippet": "Recomenda-se chunk_size entre 800 e 1000 tokens com 150 tokens de overlap para textos técnicos."
             }
         ]
+
+        
+        return {
+            "response": response_text, 
+            "sources": sources
+        }
+
+    @staticmethod
+    def recontextualize_query(query: str, chat_messages: list[ChatMessage]):
+        """Retorna a mesma query informada para permitir o fluxo correto de dados no ambiente mockado."""
+        return query

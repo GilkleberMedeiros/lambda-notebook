@@ -3,6 +3,7 @@ from typing import Literal, Protocol
 from datetime import datetime
 from sqlalchemy import select, delete
 from streamlit.typing import UploadedFile
+from langchain_core.output_parsers import StrOutputParser
 
 from src.config import demonstrative_mode, CHAT_HISTORY_CONTEXT_WINDOW_SIZE
 from src.database.db import get_session
@@ -11,6 +12,7 @@ from src.database import repository as repo
 
 from src.rag import vector_store as vstore
 from src.rag import ingestion
+from src.rag import chain
 from src.utils import *
 
 
@@ -258,6 +260,70 @@ class Services(_BaseServices):
       coll_name = make_nb_chat_collection_name(notebook_id)
       vstore.delete_collection(coll_name)
       vstore.create_collection(coll_name)
+
+  @staticmethod
+  def recontextualize_query(query: str, chat_messages: list[ChatMessage]):
+    llm = chain.make_llm()
+    parser = StrOutputParser()
+
+    # Recontextualizar a pergunta
+    RECONTEXTUALIZE_PROMPT = """
+    Você é um assistente de IA especializado em recontextualizar e refinar buscas para sistemas RAG. 
+
+    Sua tarefa é analisar o [Histórico da Conversa] e a [Última Pergunta] do usuário. Com base nisso, gere uma única query de busca otimizada que seja totalmente independente e autossuficiente para encontrar a resposta em um banco de dados.
+
+    Regras Estritas:
+    1. Se a [Última Pergunta] depender do contexto anterior (ex: uso de pronomes como "ele", "onde fica", "quanto custa isso", "e o outro?"), substitua esses termos pelas entidades corretas mencionadas no histórico.
+    2. Se a [Última Pergunta] já for autossuficiente e clara por si só, retorne-a exatamente como o usuário digitou.
+    3. Não responda à pergunta. Não adicione saudações, explicações, introduções ou quaisquer outros textos à pergunta, apenas faça as substituições caso necessário. 
+    4. Retorne APENAS a query recontextualizada em formato de texto puro.
+
+    """
+    prompt_messages = chain.convert_chat_messages_to_prompt_messages(chat_messages)
+    prompt_messages = [*prompt_messages, ("human", "{query}")]
+    prompt = chain.make_prompt(
+      chat_messages=prompt_messages, 
+      system_prompt=RECONTEXTUALIZE_PROMPT
+    )
+
+    recontextualize_chain = prompt | llm | parser
+    q = recontextualize_chain.invoke({"query": query})
+
+    return q
+
+  @staticmethod
+  def query_llm(query: str, notebook_id: int, chat_messages: list[ChatMessage] = [], selected_docs_ids: list[int] = None): 
+    def format_docs(docs): 
+      f = ""
+      for doc in docs:
+        f += f"{doc}\n\n----\n\n"
+      return f
+    
+    llm = chain.make_llm()
+    parser = StrOutputParser()
+
+    prompt_messages = chain.convert_chat_messages_to_prompt_messages(chat_messages)
+    prompt_messages = [*prompt_messages, ("human", "{query}")]
+    prompt = chain.make_prompt(prompt_messages)
+
+    q_filter = {"document_id": { "$in": selected_docs_ids}} if selected_docs_ids else None
+    result = chain.get_relevant_docs(query, notebook_id, q_filter)
+    docs = result["documents"][0]
+    context = format_docs(docs)
+
+    q_chain = prompt | llm | parser
+    res = q_chain.invoke({ "query": query, "context": context })
+
+    return {
+      "response": res, 
+      "sources": [{ 
+        "snippet": doc,
+        "page": meta["page"], 
+        "name": meta["filename"],
+        "document_id": meta["document_id"]  
+      } for doc, meta in zip(docs, result["metadatas"][0]) ] 
+    }
+
 
 
 def get_service():

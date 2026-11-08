@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-DEFAULT_LLM_MODEL = "gemini-2.0-flash"
+DEFAULT_LLM_MODEL = "gemini-3.1-flash-lite"
 DEFAULT_EMBEDDING_MODEL = "models/gemini-embedding-2"
 CHAT_HISTORY_CONTEXT_WINDOW_SIZE = 15
 

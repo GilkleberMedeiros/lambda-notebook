@@ -1,11 +1,11 @@
 import streamlit as st
-from src.mock_services import MockServices
+from src.config import CHAT_HISTORY_CONTEXT_WINDOW_SIZE
+from src.services import get_service
 
-services = MockServices()
+services = get_service()
 
 def render_chat(notebook_id: str):
     documents = services.get_documents(notebook_id)
-    doc_names = [d.name for d in documents]
 
     # Cabeçalho do Chat e Ações
     col_h1, col_h2 = st.columns([0.7, 0.3])
@@ -19,12 +19,13 @@ def render_chat(notebook_id: str):
             st.rerun()
 
     # Filtro de Fontes Ativas
-    selected_doc_names = []
-    if doc_names:
+    selected_docs = []
+    if documents:
         with st.expander("🎯 **Filtrar Fontes Ativas para a Pergunta** (Opcional)", expanded=False):
-            selected_doc_names = st.multiselect(
+            selected_docs = st.multiselect(
                 "Selecione quais documentos devem compor o contexto (deixe vazio para todos):",
-                options=doc_names,
+                options=documents,
+                format_func=lambda d: d.name,
                 default=[]
             )
 
@@ -57,7 +58,7 @@ def render_chat(notebook_id: str):
             if sources:
                 with st.expander(f"🔍 Fontes consultadas ({len(sources)})", expanded=False):
                     for src in sources:
-                        doc_name = src.get("document_name", "Documento")
+                        doc_name = src.get("name", "Documento")
                         page = src.get("page", "")
                         snippet = src.get("snippet", "")
                         st.markdown(f"**📄 {doc_name}** `({page})`")
@@ -79,16 +80,20 @@ def render_chat(notebook_id: str):
 
         # Simula resposta do assistente via streaming
         with st.chat_message("assistant"):
-            active_selection = selected_doc_names if selected_doc_names else doc_names
-            stream_gen = services.simulate_mock_stream(query=query_to_run, active_doc_names=active_selection)
+            chat_history = messages[:CHAT_HISTORY_CONTEXT_WINDOW_SIZE+1]
+            active_selection = selected_docs if selected_docs else documents
+            active_selection_ids = [ doc.id for doc in active_selection ]
+            contextualized_q = services.recontextualize_query(query_to_run, chat_history)
+            llm_response = services.query_llm(contextualized_q, notebook_id, chat_history, active_selection_ids)
+            stream_response = (char for char in llm_response["response"])
             
-            full_response = st.write_stream(stream_gen)
-            retrieved_sources = services.generate_mock_sources(active_selection)
+            full_response = st.write_stream(stream_response)
+            retrieved_sources = llm_response["sources"]
 
             if retrieved_sources:
                 with st.expander(f"🔍 Fontes consultadas ({len(retrieved_sources)})", expanded=True):
                     for src in retrieved_sources:
-                        doc_name = src.get("document_name", "Documento")
+                        doc_name = src.get("name", "Documento")
                         page = src.get("page", "")
                         snippet = src.get("snippet", "")
                         st.markdown(f"**📄 {doc_name}** `({page})`")
