@@ -6,6 +6,28 @@ CUSTOM_CSS = """
         color: #e0e0e0;
     }
     
+    /* Otimização de espaçamento para manter a interface contida na tela */
+    .block-container,
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 2rem !important;
+        padding-bottom: 5.5rem !important;
+        padding-left: 2.5rem !important;
+        padding-right: 2.5rem !important;
+        max-width: 100% !important;
+    }
+
+    /* Reduz espaço do cabeçalho da página */
+    header[data-testid="stHeader"] {
+        height: 2.5rem !important;
+        background: transparent !important;
+    }
+
+    /* Ajuste de espaçamento para divisores */
+    hr {
+        margin: 0.75rem 0 !important;
+        border-color: #282f3f !important;
+    }
+    
     /* Cabeçalhos e Títulos */
     .main-header {
         font-size: 1.8rem;
@@ -182,6 +204,72 @@ CUSTOM_CSS = """
     .citation-snippet {
         color: #bdc1c6;
         font-style: italic;
+    }
+
+    /* ========================================================
+       CONTAINER DO CHAT E BARRA DE ROLAGEM
+       ======================================================== */
+
+    .chat-scroll-container,
+    div:has(> .chat-scroll-container) {
+        display: none !important;
+    }
+
+    /* Container do chat com borda, cantos arredondados e altura ajustada à tela */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) {
+        background-color: #121620 !important;
+        border: 1px solid #282f3f !important;
+        border-radius: 12px !important;
+        height: clamp(380px, calc(100vh - 350px), 640px) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Área interna rolável com barra de rolagem lateral */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) > div[data-testid="stVerticalBlock"] {
+        overflow-y: auto !important;
+        scroll-behavior: smooth !important;
+        padding: 1rem !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: #4b5563 #161b26 !important;
+    }
+
+    /* Estilização da barra de rolagem para WebKit (Chrome, Edge, Safari, Opera) */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar,
+    div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"]::-webkit-scrollbar {
+        width: 8px !important;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-track,
+    div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-track {
+        background: #161b26 !important;
+        border-radius: 4px !important;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb,
+    div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {
+        background-color: #4b5563 !important;
+        border-radius: 4px !important;
+        border: 2px solid #161b26 !important;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.chat-scroll-container) > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb:hover,
+    div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb:hover {
+        background-color: #6b7280 !important;
+    }
+
+    /* Mensagens do Chat */
+    div[data-testid="stChatMessage"] {
+        background-color: #181c26 !important;
+        border: 1px solid #282f3f !important;
+        border-radius: 10px !important;
+        margin-bottom: 0.75rem !important;
+        padding: 0.85rem !important;
+    }
+
+    /* Barra inferior de entrada do chat */
+    div[data-testid="stBottom"] {
+        background-color: #0e1117 !important;
     }
 </style>
 """
