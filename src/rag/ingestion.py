@@ -5,7 +5,7 @@ from langchain_community.document_loaders.base import BaseLoader
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings, _DEFAULT_BATCH_SIZE
+from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 
 from src.config import get_embedding_model, get_llm_api_key
 
@@ -56,9 +56,6 @@ def split_documents(docs: list[Document] | list[str]) -> list[list[Document]] | 
   return texts
 
 def embed_documents(docs: list[Document] | list[str]): 
-  if len(docs) > _DEFAULT_BATCH_SIZE:
-    raise Exception("Número de documentos para embedding excedeu o limite da API.")
-
   model = GoogleGenerativeAIEmbeddings(model=get_embedding_model(), api_key=get_llm_api_key())
 
   texts = []
@@ -70,6 +67,7 @@ def embed_documents(docs: list[Document] | list[str]):
 
     texts.append(doc)
 
-  embeddings = model.embed_documents(texts)
+
+  embeddings = model.embed_documents(texts, batch_size=len(texts))
 
   return embeddings
