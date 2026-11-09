@@ -3,10 +3,8 @@ import streamlit as st
 from src.config import demonstrative_mode
 from src.services import get_service
 
-services = get_service()
-
-
 def render_gallery(notebook_id: str):
+    services = get_service()
     notebook = services.get_notebook(notebook_id)
     if not notebook:
         st.warning("Selecione um notebook na barra lateral.")

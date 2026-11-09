@@ -2,9 +2,8 @@ import streamlit as st
 from src.config import CHAT_HISTORY_CONTEXT_WINDOW_SIZE
 from src.services import get_service
 
-services = get_service()
-
 def render_chat(notebook_id: str):
+    services = get_service()
     documents = services.get_documents(notebook_id)
 
     # Cabeçalho do Chat e Ações

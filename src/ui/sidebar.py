@@ -1,18 +1,126 @@
-from operator import ge
-
 import streamlit as st
-from src.config import demonstrative_mode
+from src.config import (
+    demonstrative_mode,
+    set_llm_api_key,
+    set_llm_model,
+    get_llm_model,
+    set_embedding_model,
+    get_embedding_model,
+    DEFAULT_LLM_MODEL,
+    DEFAULT_EMBEDDING_MODEL
+)
 from src.services import get_service
 
 
-services = get_service()
-
-
 def render_sidebar():
+  services = get_service()
+
   with st.sidebar:
     st.markdown("### 📓 **Gemini Notebook**")
     st.caption("Docs Reviewer — Protótipo de Interface")
     st.divider()
+
+    # Configuração de API e Modelos (Modo Demonstrativo)
+    if demonstrative_mode():
+      st.warning("⚠️ **Modo Demonstrativo Ativo**\n(Sem chave de API informada)")
+      with st.expander("⚙️ **Configurar API & Modelos**", expanded=True):
+        st.caption("Configure uma API Key e escolha os modelos para habilitar o modo real.")
+
+        # Campo de API Key
+        api_key_input = st.text_input(
+            "🔑 Gemini API Key",
+            type="password",
+            placeholder="Insira sua Gemini API Key...",
+            help="Obtenha sua chave no Google AI Studio (aistudio.google.com)",
+            key="sidebar_api_key_input"
+        )
+
+        # Modelo de Chat (LLM)
+        current_chat_model = get_llm_model() or DEFAULT_LLM_MODEL
+        chat_options = [
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+        if current_chat_model not in chat_options:
+          chat_options.insert(0, current_chat_model)
+        chat_idx = chat_options.index(current_chat_model)
+
+        chat_model_val = st.selectbox(
+            "💬 Modelo de Chat (LLM)",
+            options=chat_options,
+            index=chat_idx,
+            accept_new_options=True,
+            key="sidebar_chat_model_select",
+            help="Selecione um modelo da lista ou digite o nome de um modelo novo/customizado diretamente no campo."
+        )
+
+        # Modelo de Embeddings
+        current_emb_model = get_embedding_model() or DEFAULT_EMBEDDING_MODEL
+        emb_options = [
+            "models/gemini-embedding-2",
+            "models/text-embedding-004",
+            "models/embedding-001",
+        ]
+        if current_emb_model not in emb_options:
+          emb_options.insert(0, current_emb_model)
+        emb_idx = emb_options.index(current_emb_model)
+
+        emb_model_val = st.selectbox(
+            "🧩 Modelo de Embeddings",
+            options=emb_options,
+            index=emb_idx,
+            accept_new_options=True,
+            key="sidebar_emb_model_select",
+            help="Selecione um modelo da lista ou digite o nome de um modelo novo/customizado diretamente no campo."
+        )
+
+        # Aplica os modelos selecionados no config
+        if chat_model_val and chat_model_val.strip():
+          set_llm_model(chat_model_val.strip())
+        if emb_model_val and emb_model_val.strip():
+          set_embedding_model(emb_model_val.strip())
+
+        # Botão para ativar a API Key informada
+        if st.button("🚀 Ativar Chave & Modelos", type="primary", use_container_width=True):
+          if api_key_input and api_key_input.strip():
+            key_clean = api_key_input.strip()
+            set_llm_api_key(key_clean)
+            st.session_state["llm_api_key"] = key_clean
+
+            chat_final = chat_model_val.strip() if chat_model_val else DEFAULT_LLM_MODEL
+            set_llm_model(chat_final)
+            st.session_state["llm_model"] = chat_final
+
+            emb_final = emb_model_val.strip() if emb_model_val else DEFAULT_EMBEDDING_MODEL
+            set_embedding_model(emb_final)
+            st.session_state["embedding_model"] = emb_final
+
+            # Limpa estado de navegação do modo mockado para recarregar o banco real limpo
+            st.session_state.pop("active_notebook_id", None)
+            st.session_state.pop("notebooks", None)
+
+            st.success("API Key e modelos configurados com sucesso!")
+            st.rerun()
+          else:
+            st.error("Informe uma API Key válida.")
+
+      st.divider()
+    else:
+      with st.expander("🔑 **API Conectada**", expanded=False):
+        st.success("🟢 Modo Real Ativo")
+        st.caption(f"**Chat:** `{get_llm_model()}`")
+        st.caption(f"**Embeddings:** `{get_embedding_model()}`")
+        if st.button("Desconectar Chave (Modo Demo)", use_container_width=True):
+          set_llm_api_key("")
+          st.session_state.pop("llm_api_key", None)
+          st.session_state.pop("active_notebook_id", None)
+          st.session_state.pop("notebooks", None)
+          st.toast("Modo demonstrativo reativado.")
+          st.rerun()
+      st.divider()
 
     # Formulário para Criar Novo Notebook
     with st.expander("➕ **Novo Notebook**", expanded=False):
