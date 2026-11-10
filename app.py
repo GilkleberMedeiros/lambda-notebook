@@ -27,8 +27,8 @@ services = get_service()
 
 # Configuração da página Streamlit
 st.set_page_config(
-    page_title="Gemini Notebook - Docs Reviewer",
-    page_icon="📓",
+    page_title="Lambda Notebook - Docs Reviewer",
+    page_icon="λ",
     layout="wide",
     initial_sidebar_state="expanded"
 )

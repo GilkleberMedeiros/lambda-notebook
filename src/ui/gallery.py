@@ -16,7 +16,7 @@ def render_gallery(notebook_id: str):
     # Cabeçalho do Notebook Selecionado
     col_t1, col_t2 = st.columns([0.7, 0.3])
     with col_t1:
-        st.markdown(f"## 📁 {notebook.name}")
+        st.markdown(f"## :material/folder_open: {notebook.name}")
         if notebook.description:
             st.caption(notebook.description)
     with col_t2:
@@ -65,10 +65,10 @@ def render_gallery(notebook_id: str):
             with st.container(border=True):
                 st.markdown(f"<span class='{badge_class}'>{doc.file_type}</span>", unsafe_allow_html=True)
                 st.markdown(f"**{doc.name}**")
-                st.caption(f"📅 {doc.created_at} | 💾 {0} KB")
+                st.caption(f":material/calendar_month: {doc.created_at} | 💾 {0} KB")
                 st.caption(f"🧩 {doc.chunk_count} blocos indexados")
 
-                c1, c2 = st.columns([0.6, 0.4])
+                c1, c2 = st.columns([0.8, 0.2])
                 with c1:
                     with st.popover("Detalhes"):
                         st.markdown(f"**ID:** `{doc.id}`")
@@ -76,7 +76,7 @@ def render_gallery(notebook_id: str):
                         st.markdown(f"**Formato:** {doc.file_type}")
                         st.markdown(f"**Chunks:** {doc.chunk_count}")
                 with c2:
-                    if st.button("🗑️", key=f"del_doc_{doc.id}", help="Excluir documento"):
+                    if st.button(":material/delete:", key=f"del_doc_{doc.id}", help="Excluir documento"):
                         services.delete_document(notebook_id, doc.id)
                         st.toast(f"Documento '{doc.name}' removido.")
                         st.rerun()

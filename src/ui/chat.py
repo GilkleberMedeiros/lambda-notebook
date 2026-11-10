@@ -12,7 +12,7 @@ def render_chat(notebook_id: str):
         st.markdown("### 💬 **Perguntas & Respostas**")
         st.caption("Converse e extraia insights com base nos documentos do seu notebook.")
     with col_h2:
-        if st.button("🧹 Limpar Histórico", use_container_width=True, help="Zera as mensagens deste notebook"):
+        if st.button("Limpar Histórico", use_container_width=True, help="Zera as mensagens deste notebook"):
             services.clear_messages(notebook_id)
             st.toast("Histórico limpo!")
             st.rerun()
@@ -20,7 +20,7 @@ def render_chat(notebook_id: str):
     # Filtro de Fontes Ativas
     selected_docs = []
     if documents:
-        with st.expander("🎯 **Filtrar Fontes Ativas para a Pergunta** (Opcional)", expanded=False):
+        with st.expander("**Filtrar Fontes Ativas para a Pergunta** (Opcional)", expanded=False):
             selected_docs = st.multiselect(
                 "Selecione quais documentos devem compor o contexto (deixe vazio para todos):",
                 options=documents,

@@ -16,7 +16,7 @@ def render_sidebar():
   services = get_service()
 
   with st.sidebar:
-    st.markdown("### 📓 **Gemini Notebook**")
+    st.markdown("### **λ Lambda Notebook**")
     st.caption("Docs Reviewer — Protótipo de Interface")
     st.divider()
 
@@ -137,7 +137,7 @@ def render_sidebar():
             st.error("Informe um nome válido.")
 
     # Listagem de Notebooks
-    st.markdown("#### 📁 **Pastas (Notebooks)**")
+    st.markdown("#### :material/folder: **Pastas (Notebooks)**")
     notebooks = services.get_all_notebooks()
 
     if not notebooks:
@@ -156,7 +156,7 @@ def render_sidebar():
       col1, col2 = st.columns([0.82, 0.18])
 
       with col1:
-        btn_label = f"{'🔹 ' if is_active else '📁 '} {nb.name} ({len(docs)})"
+        btn_label = f"{':material/folder_open: ' if is_active else ':material/folder: '} {nb.name}"
         if st.button(
           btn_label,
           key=f"nb_btn_{nb.id}",
@@ -167,7 +167,7 @@ def render_sidebar():
           st.rerun()
 
       with col2:
-        if st.button("🗑️", key=f"del_nb_{nb.id}", help="Excluir este notebook"):
+        if st.button(":material/delete:", key=f"del_nb_{nb.id}", help="Excluir este notebook"):
           services.delete_notebook(nb.id)
           st.toast("Notebook excluído.")
           st.rerun()
@@ -176,7 +176,7 @@ def render_sidebar():
 
     if demonstrative_mode():
       # Botão para restaurar dados mockados
-      if st.button("🔄 Restaurar Dados Demonstrativos", use_container_width=True):
+      if st.button("Restaurar Dados Demonstrativos", use_container_width=True):
         services.reset_mock_state()
         st.toast("Dados de demonstração restaurados!")
         st.rerun()
