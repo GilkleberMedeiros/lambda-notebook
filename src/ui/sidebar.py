@@ -38,11 +38,12 @@ def render_sidebar():
         # Modelo de Chat (LLM)
         current_chat_model = get_llm_model() or DEFAULT_LLM_MODEL
         chat_options = [
+            "gemini-3.8-flash",
             "gemini-3.1-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-pro-preview",
+            "gemini-3-flash-preview",
+            "gemini-4-argon",
         ]
         if current_chat_model not in chat_options:
           chat_options.insert(0, current_chat_model)
@@ -61,8 +62,7 @@ def render_sidebar():
         current_emb_model = get_embedding_model() or DEFAULT_EMBEDDING_MODEL
         emb_options = [
             "models/gemini-embedding-2",
-            "models/text-embedding-004",
-            "models/embedding-001",
+            "models/gemini-embedding-001",
         ]
         if current_emb_model not in emb_options:
           emb_options.insert(0, current_emb_model)
