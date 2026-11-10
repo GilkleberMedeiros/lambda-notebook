@@ -280,6 +280,7 @@ class Services(_BaseServices):
 
     """
     prompt_messages = chain.convert_chat_messages_to_prompt_messages(chat_messages)
+    prompt_messages = chain.escape_chat_messages(prompt_messages)
     prompt_messages = [*prompt_messages, ("human", "{query}")]
     prompt = chain.make_prompt(
       chat_messages=prompt_messages, 
@@ -303,6 +304,7 @@ class Services(_BaseServices):
     parser = StrOutputParser()
 
     prompt_messages = chain.convert_chat_messages_to_prompt_messages(chat_messages)
+    prompt_messages = chain.escape_chat_messages(prompt_messages)
     prompt_messages = [*prompt_messages, ("human", "{query}")]
     prompt = chain.make_prompt(prompt_messages)
 

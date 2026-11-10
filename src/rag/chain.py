@@ -48,3 +48,6 @@ def convert_chat_messages_to_prompt_messages(messages: list[models.ChatMessage])
   }
 
   return [ ChatMessage(ROLES_MAP[msg.role], msg.content) for msg in messages ]
+
+def escape_chat_messages(messages: list[ChatMessage]):
+  return [ ChatMessage(msg.role, msg.text.replace("{", "}}").replace("}", "}}")) for msg in messages ]
