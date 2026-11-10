@@ -66,7 +66,7 @@ if active_id:
     with tab_gallery:
         render_gallery(active_id)
 else:
-    st.markdown("## 👋 Bem-vindo ao **Gemini Notebook**")
+    st.markdown("## 👋 Bem-vindo ao **Lambda Notebook**")
     st.info("Para começar, crie um novo notebook na barra lateral à esquerda ou restaure os dados de exemplo.")
     if demonstrative_mode():
         if st.button("Carregar Dados Demonstrativos", type="primary"):
