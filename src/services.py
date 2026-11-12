@@ -5,7 +5,7 @@ from sqlalchemy import select, delete
 from streamlit.typing import UploadedFile
 from langchain_core.output_parsers import StrOutputParser
 
-from src.config import demonstrative_mode, CHAT_HISTORY_CONTEXT_WINDOW_SIZE
+from src.config import APP_DATA_PATH, demonstrative_mode, CHAT_HISTORY_CONTEXT_WINDOW_SIZE
 from src.database.db import get_session
 from src.database.models import ChatMessage, Notebook, Document
 from src.database import repository as repo
@@ -93,7 +93,7 @@ class Services(_BaseServices):
 
           # Salva arquivo original em storage/notebooks
           file_bytes = file.read()
-          p = Path(f"./src/storage/notebook/{notebook_id}")
+          p = Path(APP_DATA_PATH).joinpath(f"notebook/{notebook_id}")
           p.mkdir(parents=True, exist_ok=True)
           p = p.joinpath(filename)
           p.write_bytes(file_bytes)
@@ -133,7 +133,8 @@ class Services(_BaseServices):
           return document
         except Exception as e: 
           # Deleta arquivo em caso de erro
-          p = Path(f"./storage/notebook/{notebook_id}").joinpath(file.name)
+          p = Path(APP_DATA_PATH).joinpath(f"/notebook/{notebook_id}")
+          p = p.joinpath(file.name)
           p.unlink(missing_ok=True)
 
           # Deleta o registro no vector_store em caso de erro

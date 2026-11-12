@@ -1,6 +1,9 @@
 from typing import TypedDict
+from pathlib import Path
 
 import chromadb
+
+from src.config import APP_DATA_PATH
 
 
 class RegistryData(TypedDict):
@@ -9,7 +12,8 @@ class RegistryData(TypedDict):
   embeddings: list[any] | None
   metadatas: list[dict] | None
 
-chroma_client = chromadb.PersistentClient("./src/storage/chromadb")
+p = Path(APP_DATA_PATH).joinpath("chromadb")
+chroma_client = chromadb.PersistentClient(str(p))
 
 
 def create_collection(name: str): 

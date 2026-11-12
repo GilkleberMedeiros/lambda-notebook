@@ -1,9 +1,13 @@
 from contextlib import contextmanager
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-sqlite_engine = create_engine("sqlite:///src/storage/app.db")
+from src.config import APP_DATA_PATH
+
+p = Path(APP_DATA_PATH).joinpath("app.db")
+sqlite_engine = create_engine(f"sqlite:///{str(p)}")
 
 
 # Importe todas as tabelas aq!
