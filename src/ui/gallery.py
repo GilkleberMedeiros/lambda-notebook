@@ -65,7 +65,7 @@ def render_gallery(notebook_id: str):
             with st.container(border=True):
                 st.markdown(f"<span class='{badge_class}'>{doc.file_type}</span>", unsafe_allow_html=True)
                 st.markdown(f"**{doc.name}**")
-                st.caption(f":material/calendar_month: {doc.created_at} | 💾 {0} KB")
+                st.caption(f":material/calendar_month: {doc.created_at.strftime("%d/%m/%Y %H:%M:%S")} | 💾 {0} KB")
                 st.caption(f"🧩 {doc.chunk_count} blocos indexados")
 
                 c1, c2 = st.columns([0.8, 0.2])
